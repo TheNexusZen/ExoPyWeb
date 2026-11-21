@@ -1,0 +1,48 @@
+/* Base typography and smooth scrolling */
+html {
+scroll-behavior: smooth;
+}
+​body {
+font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+​code, pre, textarea.code-editor {
+font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+​/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+width: 6px;
+height: 6px;
+}
+​::-webkit-scrollbar-track {
+background: transparent;
+}
+​::-webkit-scrollbar-thumb {
+background: rgba(113, 113, 122, 0.35);
+border-radius: 9999px;
+}
+​::-webkit-scrollbar-thumb:hover {
+background: rgba(113, 113, 122, 0.55);
+}
+​/* Python Syntax Highlighting — Dark Mode */
+.tok-kw { color: #c084fc; }
+.tok-str { color: #86efac; }
+.tok-num { color: #fdba74; }
+.tok-com { color: #71717a; font-style: italic; }
+.tok-dec { color: #f472b6; }
+.tok-fn { color: #38bdf8; }
+.tok-bool { color: #fb923c; }
+​/* Python Syntax Highlighting — Light Mode */
+html:not(.dark) .tok-kw { color: #7e22ce; }
+html:not(.dark) .tok-str { color: #15803d; }
+html:not(.dark) .tok-num { color: #c2410c; }
+html:not(.dark) .tok-com { color: #71717a; font-style: italic; }
+html:not(.dark) .tok-dec { color: #be185d; }
+html:not(.dark) .tok-fn { color: #0369a1; }
+html:not(.dark) .tok-bool { color: #c2410c; }
+​/* Playground Canvas Container */
+#playground-canvas {
+display: block;
+width: 100%;
+height: 100%;
+touch-action: none;
+}
