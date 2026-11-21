@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
-  <!-- Tailwind CSS -->
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -26,15 +26,72 @@
     };
   </script>
 
-  <!-- Custom Styles -->
-  <link rel="stylesheet" href="styles.css" />
+  <!-- Embedded Styles -->
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    code, pre, textarea.code-editor {
+      font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    }
+
+    /* Subtle custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(113, 113, 122, 0.35);
+      border-radius: 9999px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(113, 113, 122, 0.55);
+    }
+
+    /* Python Syntax Highlighting — Dark Mode */
+    .tok-kw { color: #c084fc; }
+    .tok-str { color: #86efac; }
+    .tok-num { color: #fdba74; }
+    .tok-com { color: #71717a; font-style: italic; }
+    .tok-dec { color: #f472b6; }
+    .tok-fn { color: #38bdf8; }
+    .tok-bool { color: #fb923c; }
+
+    /* Python Syntax Highlighting — Light Mode */
+    html:not(.dark) .tok-kw { color: #7e22ce; }
+    html:not(.dark) .tok-str { color: #15803d; }
+    html:not(.dark) .tok-num { color: #c2410c; }
+    html:not(.dark) .tok-com { color: #71717a; font-style: italic; }
+    html:not(.dark) .tok-dec { color: #be185d; }
+    html:not(.dark) .tok-fn { color: #0369a1; }
+    html:not(.dark) .tok-bool { color: #c2410c; }
+
+    /* Interactive Playground Canvas */
+    #playground-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+  </style>
 </head>
 
 <body class="bg-white text-zinc-900 dark:bg-[#09090b] dark:text-zinc-100 antialiased selection:bg-sky-500/20 selection:text-sky-400">
-  <!-- Sticky Top Bar -->
+  <!-- Sticky Top Header -->
   <header class="sticky top-0 z-40 h-16 w-full border-b border-zinc-200 dark:border-zinc-800/80 bg-white/85 dark:bg-[#09090b]/85 backdrop-blur-md">
     <div class="mx-auto flex h-full max-w-[90rem] items-center justify-between px-4 sm:px-6 lg:px-8 gap-3">
-      <!-- Left: Mobile Drawer Button + Brand + Version -->
+      <!-- Left: Mobile Menu Button + Brand + Version -->
       <div class="flex items-center gap-3 min-w-0">
         <button
           id="mobile-menu-btn"
@@ -221,9 +278,2094 @@
     </main>
   </div>
 
-  <!-- Modular Scripts (Loaded in dependency order) -->
-  <script src="docs-data.js"></script>
-  <script src="playground.js"></script>
-  <script src="app.js"></script>
+  <!-- Inline Application Script (Self-Contained for GitHub Pages) -->
+  <script>
+    // ============================================================================
+    // 1. Helpers, Syntax Highlighter & Reusable UI Components
+    // ============================================================================
+    const CODE_SNIPPETS = {};
+    let snippetCounter = 0;
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function highlightPython(code) {
+      const escaped = escapeHtml(code);
+      const tokenRegex =
+        /(#[^\n]*)|(&quot;(?:\\.|[^&]|&(?!quot;))*&quot;|&#39;(?:\\.|[^&]|&(?!#39;))*&#39;|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(@[a-zA-Z_][a-zA-Z0-9_.]*)|\b(import|from|as|def|return|if|else|elif|for|in|while|with|class|pass|and|or|not)\b|\b(True|False|None)\b|\b(\d+(?:\.\d+)?)\b|\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\s*\()/g;
+
+      return escaped.replace(tokenRegex, (match, com, str, dec, kw, bool, num, fn) => {
+        if (com) return '<span class="tok-com">' + com + '</span>';
+        if (str) return '<span class="tok-str">' + str + '</span>';
+        if (dec) return '<span class="tok-dec">' + dec + '</span>';
+        if (kw) return '<span class="tok-kw">' + kw + '</span>';
+        if (bool) return '<span class="tok-bool">' + bool + '</span>';
+        if (num) return '<span class="tok-num">' + num + '</span>';
+        if (fn) return '<span class="tok-fn">' + fn + '</span>';
+        return match;
+      });
+    }
+
+    function ic(text) {
+      return '<code class="rounded-md bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200/70 dark:border-zinc-700/70 px-1.5 py-0.5 font-mono text-[13px] text-sky-700 dark:text-sky-300">' + escapeHtml(text) + '</code>';
+    }
+
+    function codeBlock(code, lang = 'python', filename = '') {
+      const id = 'snippet_' + (++snippetCounter);
+      CODE_SNIPPETS[id] = code;
+      const formatted = lang === 'python' ? highlightPython(code) : escapeHtml(code);
+
+      return `
+        <div class="group relative my-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#111114] overflow-hidden shadow-xs">
+          <div class="flex items-center justify-between border-b border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-100/70 dark:bg-zinc-900/60 px-4 py-2">
+            <span class="font-mono text-xs text-zinc-500 dark:text-zinc-400">${escapeHtml(filename || lang)}</span>
+            <button
+              type="button"
+              data-copy-id="${id}"
+              class="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:border-sky-500/50 hover:text-zinc-900 dark:hover:text-white transition-all"
+            >
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span class="copy-label">Copy</span>
+            </button>
+          </div>
+          <pre class="overflow-x-auto p-4 text-[13px] leading-relaxed text-zinc-800 dark:text-zinc-200"><code>${formatted}</code></pre>
+        </div>
+      `;
+    }
+
+    function callout(title, bodyHtml, tone = 'info') {
+      const tones = {
+        info: {
+          wrap: 'border-sky-500/30 bg-sky-500/5 dark:bg-sky-500/10',
+          title: 'text-sky-700 dark:text-sky-300',
+        },
+        tip: {
+          wrap: 'border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10',
+          title: 'text-emerald-700 dark:text-emerald-300',
+        },
+        warn: {
+          wrap: 'border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10',
+          title: 'text-amber-700 dark:text-amber-300',
+        },
+      };
+      const style = tones[tone] || tones.info;
+
+      return `
+        <div class="my-5 rounded-xl border ${style.wrap} p-4">
+          <div class="text-sm font-semibold ${style.title} mb-1">${escapeHtml(title)}</div>
+          <div class="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">${bodyHtml}</div>
+        </div>
+      `;
+    }
+
+    // ============================================================================
+    // 2. Exoscript Action Tabs (Used on the Exoscripts Page)
+    // ============================================================================
+    const ACTION_TABS = [
+      {
+        id: 'flow',
+        label: 'Control Flow',
+        items: [
+          { sig: '.wait(sec)', desc: 'Pause the Exoscript for a number of seconds.' },
+          { sig: '.wait_frames(n)', desc: 'Pause for an exact number of frames.' },
+          { sig: '.repeat(n, body)', desc: 'Run an exoscript.block() a fixed number of times.' },
+          { sig: '.repeat_while(cond, body)', desc: 'Loop a block while a condition stays true.' },
+          { sig: '.if_else(cond, if_body, else_body)', desc: 'Branch logic based on a condition (else_body is optional).' },
+        ],
+      },
+      {
+        id: 'transforms',
+        label: 'Movement',
+        items: [
+          { sig: '.move(target, pos, ...)', desc: 'Move an object or set to (x, y). Supports is_global, duration, easing, and wait.' },
+          { sig: '.scale(target, sc, ...)', desc: 'Resize an object or set to (sx, sy) over an optional duration.' },
+          { sig: '.rotate(target, rot, ...)', desc: 'Rotate an object in degrees. Supports shortest_path, is_global, duration, easing, and wait.' },
+        ],
+      },
+      {
+        id: 'visuals_camera',
+        label: 'Visuals & Camera',
+        items: [
+          { sig: '.set_color(target, color, ...)', desc: 'Change an object color (hex or RGBA) on a channel with optional fade duration.' },
+          { sig: '.set_text(target, text)', desc: 'Update the displayed text on a text object.' },
+          { sig: '.set_enabled(target, enabled)', desc: 'Enable or disable an object or object set.' },
+          { sig: '.game_text(text, duration)', desc: 'Show an on-screen banner message to the player.' },
+          { sig: '.camera_pan(pos, ...)', desc: 'Pan the camera to a world position with optional duration, easing, and wait.' },
+          { sig: '.camera_zoom(viewport_size, ...)', desc: 'Change the camera viewport size to zoom in or out.' },
+          { sig: '.camera_shake(...)', desc: 'Trigger camera shake (strength, roughness, fade_in, fade_out, duration, wait).' },
+        ],
+      },
+      {
+        id: 'vars_gameplay',
+        label: 'Variables & Gameplay',
+        items: [
+          { sig: '.set_var(var, val)', desc: 'Assign a new value or expression result to an exovar variable.' },
+          { sig: '.reset_var(var)', desc: 'Reset a variable back to its starting value.' },
+          { sig: '.activate(target)', desc: 'Activate a target object or trigger.' },
+          { sig: '.deactivate(target)', desc: 'Deactivate a target object.' },
+          { sig: '.kill(target)', desc: 'Kill the target (for example, exovar.player()).' },
+          { sig: '.game_finish()', desc: 'Immediately finish the level run.' },
+          { sig: '.call(fn, *args)', desc: 'Call a reusable @exoscript.func or stdlib effect.' },
+          { sig: '.call_id(id, params)', desc: 'Call another Exoscript directly by its numeric script ID.' },
+          { sig: '.ret(val)', desc: 'Return a value from inside a reusable function.' },
+          { sig: '.raw_action(id, *fields)', desc: 'Emit a low-level Exoscript action directly by Action ID.' },
+        ],
+      },
+    ];
+
+    let activeActionTab = 'flow';
+
+    function renderActionTabsHtml() {
+      const buttons = ACTION_TABS.map((t) => {
+        const isActive = t.id === activeActionTab;
+        const cls = isActive
+          ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/40'
+          : 'bg-transparent text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-zinc-200';
+        return `<button type="button" data-action-tab="${t.id}" class="rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${cls}">${escapeHtml(t.label)}</button>`;
+      }).join('');
+
+      const current = ACTION_TABS.find((t) => t.id === activeActionTab) || ACTION_TABS[0];
+      const rows = current.items
+        .map(
+          (item) => `
+          <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 py-3">
+            <div class="sm:w-64 shrink-0 font-mono text-xs font-medium text-sky-700 dark:text-sky-400">${escapeHtml(item.sig)}</div>
+            <div class="text-sm text-zinc-600 dark:text-zinc-300">${escapeHtml(item.desc)}</div>
+          </div>
+        `
+        )
+        .join('');
+
+      return `
+        <div class="space-y-4">
+          <div class="flex flex-wrap gap-2">${buttons}</div>
+          <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] px-4 divide-y divide-zinc-200/70 dark:divide-zinc-800/70">
+            ${rows}
+          </div>
+        </div>
+      `;
+    }
+
+    // ============================================================================
+    // 3. Documentation Pages (8 Focused Pages)
+    // ============================================================================
+    const DOC_PAGES = [
+      {
+        id: 'quickstart',
+        group: 'Getting Started',
+        title: 'Quick Start',
+        description: 'Install exopython and export your first playable Exoracer level.',
+        keywords: ['install', 'pip', 'exopython', 'init', 'CreateObj', 'export', 'import', 'exoracer', 'exoscript'],
+        render: () => `
+          <header class="space-y-3 border-b border-zinc-200 dark:border-zinc-800/80 pb-6">
+            <div class="text-xs font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">Getting Started</div>
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white">Quick Start</h1>
+            <p class="text-base sm:text-lg text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              Build Exoracer levels and Exoscripts in Python instead of clicking around the editor for hours.
+            </p>
+          </header>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">1. Install</h2>
+            <p class="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              Install ${ic('exopython')} from PyPI:
+            </p>
+            ${codeBlock('pip install exopython', 'bash', 'terminal')}
+            <p class="text-sm text-zinc-600 dark:text-zinc-400">
+              In Python, import the package as ${ic('import exopy as exo')}.
+            </p>
+          </section>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">2. Build Your First Level</h2>
+            <p class="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              Save this code as ${ic('level.py')} and run it:
+            </p>
+            ${codeBlock(`import exopy as exo
+
+lvl = exo.init(
+    "My First Level",
+    bg_type="Mountains",
+    laps=1,
+    gravity=(0.0, -74.0),
+    settings={
+        "AuthorTime": 12.5,
+        "Gold": 15.0,
+        "Silver": 20.0,
+        "Private": False,
+    },
+)
+
+exo.CreateObj("terrain", (0, -2)).settings({"Box": (40, 2)}).pack()
+exo.CreateObj("start", (-15, 0)).pack()
+exo.CreateObj("finish", (15, 0)).pack()
+
+lvl.export("my_level.exolvl")`, 'python', 'level.py')}
+          </section>
+
+          ${callout(
+            'Import the level into Exoracer',
+            'Run the script to generate <code>my_level.exolvl</code>, import the level into Exoracer, and play. Want to try writing code right in your browser? Open the <button type="button" data-nav="playground" class="underline font-medium text-emerald-700 dark:text-emerald-300 hover:opacity-80">Playground &amp; Preview</button>.',
+            'tip'
+          )}
+        `,
+      },
+
+      {
+        id: 'levels',
+        group: 'Core API',
+        title: 'Levels & Settings',
+        description: 'Configure themes, laps, gravity, medal times, custom background color, and export options.',
+        keywords: ['exo.init', 'bg_type', 'Mountains', 'Halloween', 'Christmas', 'Custom', 'laps', 'gravity', 'AuthorTime', 'Gold', 'Silver', 'CustomBackgroundColor', 'music', 'Obfuscate', 'UUID', 'export', 'compress', 'metadata_mode'],
+        render: () => `
+          <header class="space-y-3 border-b border-zinc-200 dark:border-zinc-800/80 pb-6">
+            <div class="text-xs font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">Core API</div>
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white">Levels & Settings</h1>
+            <p class="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              Start every level with ${ic('exo.init()')} and export it with ${ic('lvl.export()')}.
+            </p>
+          </header>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Initializing a Level</h2>
+            ${codeBlock(`lvl = exo.init(
+    name,
+    bg_type="Mountains",
+    laps=1,
+    gravity=(0.0, -74.0),
+    settings=None,
+)`, 'python', 'signature')}
+
+            <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
+              <table class="w-full text-left text-sm border-collapse">
+                <thead class="bg-zinc-50 dark:bg-zinc-900/80 text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-800">
+                  <tr>
+                    <th class="px-4 py-3 font-semibold">Parameter</th>
+                    <th class="px-4 py-3 font-semibold">Default</th>
+                    <th class="px-4 py-3 font-semibold">Details</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-zinc-200/70 dark:divide-zinc-800/70 bg-white dark:bg-[#111114]">
+                  <tr>
+                    <td class="px-4 py-3 font-mono text-xs text-sky-700 dark:text-sky-400">name</td>
+                    <td class="px-4 py-3 font-mono text-xs text-zinc-500">required</td>
+                    <td class="px-4 py-3 text-zinc-600 dark:text-zinc-300">Level title displayed in Exoracer.</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3 font-mono text-xs text-sky-700 dark:text-sky-400">bg_type</td>
+                    <td class="px-4 py-3 font-mono text-xs text-zinc-500">"Mountains"</td>
+                    <td class="px-4 py-3 text-zinc-600 dark:text-zinc-300">Choose ${ic('"Mountains"')}, ${ic('"Halloween"')}, ${ic('"Christmas"')}, or ${ic('"Custom"')}.</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3 font-mono text-xs text-sky-700 dark:text-sky-400">laps</td>
+                    <td class="px-4 py-3 font-mono text-xs text-zinc-500">1</td>
+                    <td class="px-4 py-3 text-zinc-600 dark:text-zinc-300">Number of laps from ${ic('1')} to ${ic('10')}.</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3 font-mono text-xs text-sky-700 dark:text-sky-400">gravity</td>
+                    <td class="px-4 py-3 font-mono text-xs text-zinc-500">(0.0, -74.0)</td>
+                    <td class="px-4 py-3 text-zinc-600 dark:text-zinc-300">2D gravity vector ${ic('(gx, gy)')}. Default is ${ic('(0.0, -74.0)')}.</td>
+                  </tr>
+                  <tr>
+                    <td class="px-4 py-3 font-mono text-xs text-sky-700 dark:text-sky-400">settings</td>
+                    <td class="px-4 py-3 font-mono text-xs text-zinc-500">None</td>
+                    <td class="px-4 py-3 text-zinc-600 dark:text-zinc-300">Optional dictionary of extra level settings.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Common <span class="font-mono text-lg">settings</span> Keys</h2>
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] divide-y divide-zinc-200/70 dark:divide-zinc-800/70 px-4">
+              <div class="py-3.5 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+                <div class="sm:w-56 shrink-0 font-mono text-xs text-sky-700 dark:text-sky-400">AuthorTime, Gold, Silver</div>
+                <div class="text-sm text-zinc-600 dark:text-zinc-300">Medal times in seconds (${ic('float')}).</div>
+              </div>
+              <div class="py-3.5 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+                <div class="sm:w-56 shrink-0 font-mono text-xs text-sky-700 dark:text-sky-400">Private, CenterCamera, AllowDirectionChange, DisableReplays, DisableRevivePads, DisableStartAnim</div>
+                <div class="text-sm text-zinc-600 dark:text-zinc-300">Boolean switches (${ic('True')} or ${ic('False')}) for camera and gameplay rules.</div>
+              </div>
+              <div class="py-3.5 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+                <div class="sm:w-56 shrink-0 font-mono text-xs text-sky-700 dark:text-sky-400">CustomBackgroundColor</div>
+                <div class="text-sm text-zinc-600 dark:text-zinc-300">A single solid background color as a hex string like ${ic('"#101820"')}.</div>
+              </div>
+              <div class="py-3.5 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+                <div class="sm:w-56 shrink-0 font-mono text-xs text-sky-700 dark:text-sky-400">music</div>
+                <div class="text-sm text-zinc-600 dark:text-zinc-300">A single track name string or a list of track names.</div>
+              </div>
+              <div class="py-3.5 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+                <div class="sm:w-56 shrink-0 font-mono text-xs text-sky-700 dark:text-sky-400">Obfuscate</div>
+                <div class="text-sm text-zinc-600 dark:text-zinc-300">Boolean. Set to ${ic('True')} to scramble Exoscript, parameter, and variable names on export.</div>
+              </div>
+              <div class="py-3.5 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
+                <div class="sm:w-56 shrink-0 font-mono text-xs text-sky-700 dark:text-sky-400">UUID</div>
+                <div class="text-sm text-zinc-600 dark:text-zinc-300">Custom level UUID string (auto-generated if omitted).</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Exporting Your Level</h2>
+            ${codeBlock(`lvl.export(
+    filepath,
+    compress=True,
+    obfuscate=None,
+    metadata_mode="footer",
+    generator_mode=None,
+    include_meta=False,
+)`, 'python', 'signature')}
+            <ul class="list-disc pl-5 space-y-2 text-sm text-zinc-600 dark:text-zinc-300">
+              <li>${ic('compress=True')} — gzip-compresses the ${ic('.exolvl')} file so you can import the level into Exoracer directly.</li>
+              <li>${ic('obfuscate=None')} — overrides the level's ${ic('Obfuscate')} setting when set to ${ic('True')} or ${ic('False')}.</li>
+              <li>${ic('metadata_mode="footer"')} — writes metadata into the binary footer (or ${ic('"object"')} to store it in a hidden text object).</li>
+              <li>${ic('generator_mode')} & ${ic('include_meta')} — returns a summary dictionary (object/script counts and UUID) instead of just the file path.</li>
+            </ul>
+          </section>
+        `,
+      },
+
+      {
+        id: 'objects',
+        group: 'Core API',
+        title: 'Objects & Layers',
+        description: 'Place terrain, start/finish gates, text, and custom objects, and organize them onto parallax layers.',
+        keywords: ['CreateObj', 'CreateLayer', 'settings', 'pack', 'Rotation', 'Scale', 'Tag', 'Layer', 'Box', 'TerrainCorners', 'parallax', 'tile_id'],
+        render: () => `
+          <header class="space-y-3 border-b border-zinc-200 dark:border-zinc-800/80 pb-6">
+            <div class="text-xs font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">Core API</div>
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white">Objects & Layers</h1>
+            <p class="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              Place objects with ${ic('exo.CreateObj()')}, tweak their properties with ${ic('.settings()')}, and add them to your level with ${ic('.pack()')}.
+            </p>
+          </header>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Creating Objects</h2>
+            ${codeBlock(`box = exo.CreateObj("terrain", (0, 0)).settings({
+    "Box": (10, 2),
+    "Rotation": 15.0,
+    "Scale": (1.0, 1.0),
+    "Tag": "ramp",
+}).pack()`, 'python', 'objects.py')}
+
+            <div class="space-y-2 text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              <p>
+                <strong>${ic('obj_type')}</strong> accepts either a friendly name like ${ic('"terrain"')}, ${ic('"start"')}, ${ic('"finish"')}, or ${ic('"text"')}, or a raw integer ${ic('tile_id')}.
+              </p>
+              <p>
+                <strong>${ic('.settings({...})')}</strong> accepts transform shortcuts and any valid Exoracer object property:
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] p-3.5">
+                <div class="font-mono text-xs font-semibold text-sky-700 dark:text-sky-400 mb-1">Box</div>
+                <p class="text-xs text-zinc-600 dark:text-zinc-400">Tuple ${ic('(width, height)')}. Automatically generates ${ic('TerrainCorners')} for rectangular terrain.</p>
+              </div>
+              <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] p-3.5">
+                <div class="font-mono text-xs font-semibold text-sky-700 dark:text-sky-400 mb-1">Rotation & Scale</div>
+                <p class="text-xs text-zinc-600 dark:text-zinc-400">${ic('Rotation')} is a float in degrees; ${ic('Scale')} is a ${ic('(sx, sy)')} tuple.</p>
+              </div>
+              <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] p-3.5">
+                <div class="font-mono text-xs font-semibold text-sky-700 dark:text-sky-400 mb-1">Tag & Layer</div>
+                <p class="text-xs text-zinc-600 dark:text-zinc-400">Attach a string tag for Exoscripts, or assign a ${ic('Layer')} object (or layer ID).</p>
+              </div>
+              <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] p-3.5">
+                <div class="font-mono text-xs font-semibold text-sky-700 dark:text-sky-400 mb-1">Exoracer Properties</div>
+                <p class="text-xs text-zinc-600 dark:text-zinc-400">Pass object-specific keys like ${ic('Text')}, ${ic('FontSize')}, or ${ic('Color')} directly.</p>
+              </div>
+            </div>
+
+            ${callout(
+              'Always call .pack()',
+              `An object is not added to your level until you call ${ic('.pack()')} at the end. ${ic('.pack()')} also returns the object itself so you can save it in a Python variable and animate it with Exoscripts.`,
+              'warn'
+            )}
+          </section>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Layers & Parallax</h2>
+            <p class="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              Create extra layers with ${ic('exo.CreateLayer(name, foreground_type=0, parallax=(0.0, 0.0))')} and assign objects with ${ic('{"Layer": bg}')}:
+            </p>
+            ${codeBlock(`bg = exo.CreateLayer("Background", foreground_type=0, parallax=(0.5, 0.5))
+
+exo.CreateObj("text", (0, 6)).settings({
+    "Text": "Welcome!",
+    "FontSize": 4.0,
+    "Layer": bg,
+}).pack()`, 'python', 'layers.py')}
+          </section>
+        `,
+      },
+
+      {
+        id: 'variables',
+        group: 'Scripting',
+        title: 'Variables (exovar)',
+        description: 'Typed global/local variables, math operators, and live game value helpers.',
+        keywords: ['exovar', 'variables', 'Int', 'Float', 'Bool', 'String', 'Color', 'Vector', 'Object', 'ObjectSet', 'player', 'players', 'tag', 'object_set', 'obj_pos', 'obj_global_pos', 'distance', 'pointer_world_pos', 'pointer_down', 'pointer_held', 'not_', 'and_', 'or_', 'to_str', 'concat', 'random_int'],
+        render: () => `
+          <header class="space-y-3 border-b border-zinc-200 dark:border-zinc-800/80 pb-6">
+            <div class="text-xs font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">Scripting</div>
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white">Variables (<span class="font-mono text-2xl sm:text-3xl">exovar</span>)</h1>
+            <p class="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              Import the variables module as ${ic('exovar')} to create typed level variables and live expressions.
+            </p>
+          </header>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Variable Types</h2>
+            ${codeBlock(`from exopy import variables as exovar
+
+score  = exovar.Int("score", 0)
+speed  = exovar.Float("speed", 1.5)
+active = exovar.Bool("active", True)
+label  = exovar.String("label", "GO!")
+tint   = exovar.Color("tint", "#FF0055")
+offset = exovar.Vector("offset", (0.0, 5.0))
+target = exovar.Object("target", box)
+group  = exovar.ObjectSet("group", [box])`, 'python', 'variables.py')}
+          </section>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Math & Comparisons</h2>
+            <p class="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              Use standard Python math and comparison operators directly on ${ic('exovar')} variables and parameters:
+            </p>
+            <div class="flex flex-wrap gap-2">
+              ${['+', '-', '*', '/', '<', '<=', '>', '>=', '.eq(other)', '.ne(other)']
+                .map((op) => `<span class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-3 py-1 font-mono text-xs text-sky-700 dark:text-sky-400">${escapeHtml(op)}</span>`)
+                .join('')}
+            </div>
+            ${codeBlock(`next_score = score + 1
+is_fast = speed >= 2.0
+is_ready = active.eq(True)`, 'python', 'expressions.py')}
+          </section>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Live Game Value Helpers</h2>
+            <div class="grid grid-cols-1 gap-4">
+              <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] p-4 space-y-2">
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Targets</h3>
+                <div class="flex flex-wrap gap-2">
+                  ${['exovar.player()', 'exovar.players()', 'exovar.tag("ramp")', 'exovar.object_set([...])'].map(ic).join('')}
+                </div>
+              </div>
+
+              <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] p-4 space-y-2">
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Positions & Input</h3>
+                <div class="flex flex-wrap gap-2">
+                  ${[
+                    'exovar.obj_pos(obj)',
+                    'exovar.obj_global_pos(obj)',
+                    'exovar.distance(a, b)',
+                    'exovar.pointer_world_pos()',
+                    'exovar.pointer_down()',
+                    'exovar.pointer_held()',
+                  ].map(ic).join('')}
+                </div>
+              </div>
+
+              <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] p-4 space-y-2">
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">Logic & Text</h3>
+                <div class="flex flex-wrap gap-2">
+                  ${[
+                    'exovar.not_(c)',
+                    'exovar.and_(a, b)',
+                    'exovar.or_(a, b)',
+                    'exovar.to_str(x)',
+                    'exovar.concat(a, b)',
+                    'exovar.random_int(lo, hi)',
+                  ].map(ic).join('')}
+                </div>
+              </div>
+            </div>
+          </section>
+        `,
+      },
+
+      {
+        id: 'scripts',
+        group: 'Scripting',
+        title: 'Exoscripts (exoscript)',
+        description: 'Store Exoscripts and action blocks in Python variables, build @exoscript.func helpers, and browse all actions.',
+        keywords: ['exoscript', 'Exoscripts', 'scripts', 'create', 'block', 'variable', 'store', 'func', 'repeat', 'move', 'scale', 'rotate', 'camera_pan', 'camera_zoom', 'camera_shake', 'set_var', 'set_color', 'game_text', 'kill', 'game_finish', 'wait', 'if_else'],
+        render: () => `
+          <header class="space-y-3 border-b border-zinc-200 dark:border-zinc-800/80 pb-6">
+            <div class="text-xs font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">Scripting</div>
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white">Exoscripts (<span class="font-mono text-2xl sm:text-3xl">exoscript</span>)</h1>
+            <p class="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              Write Exoscripts by chaining actions together in Python. Import the modules as ${ic('exoscript')} and ${ic('exovar')}.
+            </p>
+          </header>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Storing Exoscripts in Python Variables</h2>
+            <p class="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              Both ${ic('exoscript.block()')} action sequences and ${ic('exoscript.create(...)')} script objects are regular Python objects. You can store them in Python variables, add more steps later, reuse the same action block across multiple scripts, and call ${ic('.pack()')} whenever you're ready:
+            </p>
+            ${codeBlock(`from exopy import scripts as exoscript, variables as exovar
+
+platform = exo.CreateObj("terrain", (0, 2)).settings({"Box": (6, 1)}).pack()
+count = exovar.Int("count", 0)
+
+# 1. Store an action block inside a Python variable
+move_seq = (
+    exoscript.block()
+    .move(platform, (10, 2), duration=1.0, wait=True)
+    .move(platform, (0, 2), duration=1.0, wait=True)
+    .set_var(count, count + 1)
+)
+
+# 2. Store the Exoscript itself inside a Python variable, add actions, then pack()
+mover = exoscript.create("MovingPlatform").on(0)
+mover.repeat(5, move_seq)
+mover.game_text("Done!", duration=2.0)
+mover.pack()`, 'python', 'stored_exoscripts.py')}
+
+            ${callout(
+              'Compose scripts cleanly with Python',
+              `Storing an Exoscript in a Python variable like ${ic('mover')} lets you build complex scripts across multiple lines, loop over objects with a Python ${ic('for')} loop, or pass the script into helper functions before calling ${ic('mover.pack()')}.`,
+              'tip'
+            )}
+          </section>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Reusable Functions (<span class="font-mono text-lg">@exoscript.func</span>)</h2>
+            <p class="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              Decorate any Python function that returns an ${ic('exoscript.block()')} with ${ic('@exoscript.func')} to call it from any Exoscript:
+            </p>
+            ${codeBlock(`@exoscript.func(name="boost_alert")
+def boost_alert(msg: exovar.String):
+    return (
+        exoscript.block()
+        .camera_shake(strength=0.6, duration=0.2)
+        .game_text(msg, duration=1.5)
+    )
+
+on_start = exoscript.create("OnStart").on(0).call(boost_alert, "Go!").pack()`, 'python', 'functions.py')}
+          </section>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Action Cheat Sheet</h2>
+            <p class="text-sm text-zinc-600 dark:text-zinc-400">
+              Pick a category to view all available chainable Exoscript actions:
+            </p>
+            <div id="action-tabs-container">
+              ${renderActionTabsHtml()}
+            </div>
+          </section>
+        `,
+      },
+
+      {
+        id: 'stdlib',
+        group: 'Scripting',
+        title: 'Built-In Effects (stdlib)',
+        description: 'Pre-built, cached Exoscript effects ready to call in your scripts.',
+        keywords: ['stdlib', 'flash', 'pulse', 'glide_between', 'banner', 'effects', 'exoscript'],
+        render: () => `
+          <header class="space-y-3 border-b border-zinc-200 dark:border-zinc-800/80 pb-6">
+            <div class="text-xs font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">Scripting</div>
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white">Built-In Effects (<span class="font-mono text-2xl sm:text-3xl">stdlib</span>)</h1>
+            <p class="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              ${ic('exo.stdlib')} gives you ready-to-use Exoscript effects that are cached automatically per level so you don't duplicate script code.
+            </p>
+          </header>
+
+          <section class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] p-4 space-y-1.5">
+              <div class="font-mono text-sm font-semibold text-sky-700 dark:text-sky-400">exo.stdlib.flash()</div>
+              <p class="text-sm text-zinc-600 dark:text-zinc-300">Briefly flashes objects to a highlight color and back.</p>
+            </div>
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] p-4 space-y-1.5">
+              <div class="font-mono text-sm font-semibold text-sky-700 dark:text-sky-400">exo.stdlib.pulse()</div>
+              <p class="text-sm text-zinc-600 dark:text-zinc-300">Pops objects bigger, then scales them back to normal.</p>
+            </div>
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] p-4 space-y-1.5">
+              <div class="font-mono text-sm font-semibold text-sky-700 dark:text-sky-400">exo.stdlib.glide_between()</div>
+              <p class="text-sm text-zinc-600 dark:text-zinc-300">Slides objects smoothly back and forth between two points.</p>
+            </div>
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] p-4 space-y-1.5">
+              <div class="font-mono text-sm font-semibold text-sky-700 dark:text-sky-400">exo.stdlib.banner()</div>
+              <p class="text-sm text-zinc-600 dark:text-zinc-300">Shows a timed on-screen message to the player.</p>
+            </div>
+          </section>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Using a stdlib Effect</h2>
+            <p class="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              Store the stdlib helper in a Python variable and call it inside your Exoscript with ${ic('.call()')}:
+            </p>
+            ${codeBlock(`import exopy as exo
+from exopy import scripts as exoscript
+
+lvl = exo.init("Flash Demo", gravity=(0.0, -74.0))
+pad = exo.CreateObj("terrain", (0, 0)).settings({"Box": (8, 1)}).pack()
+
+flash_fn = exo.stdlib.flash()
+banner_fn = exo.stdlib.banner()
+
+intro_fx = (
+    exoscript.create("IntroFX")
+    .on(0)
+    .call(banner_fn, "Ready!", 1.5)
+    .call(flash_fn, pad, "#00E5FF", "#FFFFFF", 0.25)
+    .pack()
+)
+
+lvl.export("flash_demo.exolvl")`, 'python', 'stdlib_demo.py')}
+          </section>
+        `,
+      },
+
+      {
+        id: 'decompile',
+        group: 'Tools & Security',
+        title: 'Decompile & Protect',
+        description: 'Convert .exolvl files back into Python and protect your Exoscripts with owner keys.',
+        keywords: ['decompile', 'obfuscate', 'exopy_keys', 'sha256', 'protect', 'security', 'key', 'hash'],
+        render: () => `
+          <header class="space-y-3 border-b border-zinc-200 dark:border-zinc-800/80 pb-6">
+            <div class="text-xs font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">Tools & Security</div>
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white">Decompile & Protect</h1>
+            <p class="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              Turn existing ${ic('.exolvl')} files back into editable Python code, or lock down your own Exoscripts before sharing.
+            </p>
+          </header>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Decompiling a Level</h2>
+            <p class="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              Pass any ${ic('.exolvl')} file to ${ic('exo.decompile()')} to generate a clean Python script you can edit and re-export:
+            </p>
+            ${codeBlock(`import exopy as exo
+
+exo.decompile("my_level.exolvl", out_py="my_level.py")`, 'python', 'decompile.py')}
+          </section>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">Obfuscating Your Export</h2>
+            <p class="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              Export with ${ic('obfuscate=True')} to scramble all Exoscript, parameter, and variable names:
+            </p>
+            ${codeBlock(`lvl.export("protected.exolvl", obfuscate=True)`, 'python', 'protect.py')}
+          </section>
+
+          <section class="space-y-4">
+            <h2 class="text-xl font-semibold tracking-tight text-zinc-900 dark:text-white">How Owner Keys Work (<span class="font-mono text-lg">~/.exopy_keys.txt</span>)</h2>
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-[#111114] p-5 space-y-3 text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+              <p>
+                When you export with ${ic('obfuscate=True')}, ${ic('exopy')} generates a private key for that level's UUID, saves it locally in ${ic('~/.exopy_keys.txt')}, and embeds an <strong>8-byte SHA-256 hash</strong> of that key inside the level file.
+              </p>
+              <ul class="list-disc pl-5 space-y-1.5">
+                <li><strong>If you decompile your own level</strong> on a machine with the matching key in ${ic('~/.exopy_keys.txt')}, ${ic('exo.decompile()')} verifies the hash and unlocks readable Python source.</li>
+                <li><strong>If someone else tries to decompile it</strong> without your private key, they only receive an obfuscated payload.</li>
+              </ul>
+            </div>
+            ${callout(
+              'Back up your keys file',
+              `Save a backup of ${ic('~/.exopy_keys.txt')} if you switch devices or reinstall your OS—without it, even you won't be able to unlock readable source from your obfuscated exports.`,
+              'info'
+            )}
+          </section>
+        `,
+      },
+
+      {
+        id: 'playground',
+        group: 'Interactive',
+        title: 'Playground & Preview',
+        description: 'Write Exoscript code in Python, watch a live 2D level preview, and export .py or .exolvl files.',
+        keywords: ['playground', 'preview', 'editor', 'run', 'canvas', 'export', 'exolvl', 'test', 'sandbox', 'exoscript'],
+        render: () => `
+          <header class="space-y-3 border-b border-zinc-200 dark:border-zinc-800/80 pb-6">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold uppercase tracking-wider text-sky-600 dark:text-sky-400">Interactive Sandbox</span>
+              <span class="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Live Preview</span>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-900 dark:text-white">Playground & Preview</h1>
+            <p class="text-base text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              Write actual ${ic('exopy')} code below, watch your level and Exoscript animations live, and export a real ${ic('.exolvl')} file ready to import into Exoracer.
+            </p>
+          </header>
+
+          <section class="space-y-4">
+            <!-- Preset Buttons + Run Button -->
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Presets:</span>
+                <button type="button" data-preset="basic" class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:border-sky-500/50 transition-colors">
+                  Basic Level
+                </button>
+                <button type="button" data-preset="moving" class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:border-sky-500/50 transition-colors">
+                  Moving Platform
+                </button>
+                <button type="button" data-preset="stored" class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:border-sky-500/50 transition-colors">
+                  Custom Script
+                </button>
+              </div>
+
+              <button
+                id="pg-run-btn"
+                type="button"
+                class="inline-flex items-center gap-2 rounded-lg bg-sky-600 hover:bg-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-sm shadow-sky-500/20 transition-all"
+              >
+                <svg class="h-3.5 w-3.5 fill-current" viewBox="0 0 24 24">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span>Run &amp; Preview</span>
+              </button>
+            </div>
+
+            <!-- Python Editor -->
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#111114] overflow-hidden shadow-xs">
+              <div class="flex items-center justify-between border-b border-zinc-200/80 dark:border-zinc-800/80 bg-zinc-100/70 dark:bg-zinc-900/60 px-4 py-2.5">
+                <div class="flex items-center gap-2">
+                  <span class="h-2.5 w-2.5 rounded-full bg-rose-500/80"></span>
+                  <span class="h-2.5 w-2.5 rounded-full bg-amber-500/80"></span>
+                  <span class="h-2.5 w-2.5 rounded-full bg-emerald-500/80"></span>
+                  <span class="ml-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">my_exoscript_level.py</span>
+                </div>
+                <button
+                  id="pg-copy-btn"
+                  type="button"
+                  class="rounded-md border border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-800/80 px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:border-sky-500/50 transition-colors"
+                >
+                  <span class="copy-label">Copy Code</span>
+                </button>
+              </div>
+              <textarea
+                id="playground-editor"
+                rows="16"
+                spellcheck="false"
+                class="code-editor w-full resize-y bg-transparent p-4 text-[13px] leading-relaxed text-zinc-800 dark:text-zinc-200 focus:outline-none"
+              ></textarea>
+            </div>
+
+            <!-- Status & Counts Bar -->
+            <div id="playground-status" class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 px-4 py-2.5 text-xs font-mono text-zinc-600 dark:text-zinc-300 flex flex-wrap items-center justify-between gap-2">
+              <span id="pg-status-text">Ready. Edit the Python code above and click Run &amp; Preview.</span>
+              <span id="pg-anim-badge" class="hidden rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] text-emerald-600 dark:text-emerald-400">Exoscripts Active</span>
+            </div>
+
+            <!-- 2D Preview & Inspector Card -->
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111114] overflow-hidden shadow-xs">
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/70 px-4 py-2.5">
+                <div class="flex items-center gap-2">
+                  <button
+                    id="pg-tab-canvas"
+                    type="button"
+                    class="rounded-lg bg-sky-500/15 border border-sky-500/40 px-3 py-1 text-xs font-medium text-sky-600 dark:text-sky-400 transition-colors"
+                  >
+                    2D Level Preview
+                  </button>
+                  <button
+                    id="pg-tab-inspector"
+                    type="button"
+                    class="rounded-lg border border-transparent px-3 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    Inspector &amp; Manifest
+                  </button>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <button
+                    id="pg-play-toggle"
+                    type="button"
+                    class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:border-sky-500/50 transition-colors"
+                  >
+                    Pause Anim
+                  </button>
+                  <button
+                    id="pg-reset-cam"
+                    type="button"
+                    class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:border-sky-500/50 transition-colors"
+                  >
+                    Reset View
+                  </button>
+                </div>
+              </div>
+
+              <!-- Canvas View -->
+              <div id="pg-view-canvas" class="relative w-full h-80 sm:h-96 bg-[#0b101b]">
+                <canvas id="playground-canvas"></canvas>
+                <div class="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-black/60 backdrop-blur-xs px-2.5 py-1 font-mono text-[11px] text-zinc-300">
+                  Drag to pan &bull; Scroll to zoom
+                </div>
+              </div>
+
+              <!-- Inspector View -->
+              <div id="pg-view-inspector" class="hidden p-4 space-y-4">
+                <div id="pg-inspector-summary" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+                <div>
+                  <div class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">Compiled Level Manifest</div>
+                  <pre id="pg-inspector-json" class="max-h-64 overflow-auto rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 p-3 font-mono text-xs text-zinc-700 dark:text-zinc-300"></pre>
+                </div>
+              </div>
+
+              <!-- Export Footer -->
+              <div class="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/60 px-4 py-3">
+                <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                  Export your code or download a binary <code class="font-mono text-sky-600 dark:text-sky-400">.exolvl</code> to import into Exoracer:
+                </span>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button
+                    id="pg-export-py"
+                    type="button"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:border-sky-500/50 transition-colors"
+                  >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span>Download .py</span>
+                  </button>
+                  <button
+                    id="pg-export-exolvl"
+                    type="button"
+                    class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors"
+                  >
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    <span>Export .exolvl</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        `,
+      },
+    ];
+
+    // ============================================================================
+    // 4. Interactive Playground & Binary .exolvl Exporter
+    // ============================================================================
+    const PLAYGROUND_PRESETS = {
+      basic: `import exopy as exo
+
+lvl = exo.init(
+    "Starter Track",
+    bg_type="Mountains",
+    laps=1,
+    gravity=(0.0, -74.0),
+    settings={
+        "AuthorTime": 10.5,
+        "Gold": 13.0,
+        "Silver": 17.0,
+    },
+)
+
+# Main floor, ramp, and elevated platform
+exo.CreateObj("terrain", (0, -3)).settings({"Box": (34, 2), "Color": "#334155"}).pack()
+exo.CreateObj("terrain", (22, 0)).settings({"Box": (14, 1.5), "Rotation": 22.0, "Color": "#38bdf8"}).pack()
+exo.CreateObj("terrain", (40, 3)).settings({"Box": (22, 2), "Color": "#334155"}).pack()
+
+# Start, banner text, and finish
+exo.CreateObj("start", (-13, -1)).pack()
+exo.CreateObj("text", (18, 7)).settings({"Text": "JUMP!", "FontSize": 3.5}).pack()
+exo.CreateObj("finish", (47, 5)).pack()
+
+lvl.export("starter_track.exolvl")`,
+
+      moving: `import exopy as exo
+from exopy import scripts as exoscript, variables as exovar
+
+lvl = exo.init("Moving Platform Exoscript", bg_type="Mountains", gravity=(0.0, -74.0))
+
+# Static start & end platforms
+exo.CreateObj("terrain", (-16, -2)).settings({"Box": (14, 2), "Color": "#334155"}).pack()
+exo.CreateObj("terrain", (24, 2)).settings({"Box": (14, 2), "Color": "#334155"}).pack()
+
+# Store the moving platform and Exoscript in Python variables
+platform = exo.CreateObj("terrain", (-4, -2)).settings({"Box": (7, 1.2), "Color": "#38bdf8"}).pack()
+trips = exovar.Int("trips", 0)
+
+patrol_block = (
+    exoscript.block()
+    .move(platform, (12, 2), duration=1.4, wait=True)
+    .move(platform, (-4, -2), duration=1.4, wait=True)
+    .set_var(trips, trips + 1)
+)
+
+mover_script = exoscript.create("MoveLoop").on(0)
+mover_script.repeat(10, patrol_block)
+mover_script.pack()
+
+exo.CreateObj("start", (-19, 0)).pack()
+exo.CreateObj("finish", (27, 4)).pack()
+
+lvl.export("moving_platform.exolvl")`,
+
+      stored: `import exopy as exo
+from exopy import scripts as exoscript, variables as exovar
+
+lvl = exo.init(
+    "Custom Script Showcase",
+    bg_type="Custom",
+    gravity=(0.0, -74.0),
+    settings={"CustomBackgroundColor": "#0b1120"},
+)
+
+exo.CreateObj("terrain", (0, -4)).settings({"Box": (56, 2), "Color": "#1e293b"}).pack()
+exo.CreateObj("start", (-23, -2)).pack()
+exo.CreateObj("finish", (23, -2)).pack()
+
+# Store objects and reusable Exoscript blocks in Python variables
+spinner = exo.CreateObj("terrain", (0, 2)).settings({"Box": (12, 0.8), "Color": "#f43f5e", "Tag": "hazard"}).pack()
+pulse_pad = exo.CreateObj("terrain", (13, -2.5)).settings({"Box": (5, 0.8), "Color": "#10b981"}).pack()
+
+@exoscript.func(name="pulse_effect")
+def pulse_effect(target: exovar.ObjectSet):
+    return (
+        exoscript.block()
+        .scale(target, (1.35, 1.45), duration=0.75, wait=True)
+        .scale(target, (1.0, 1.0), duration=0.75, wait=True)
+    )
+
+hazard_script = (
+    exoscript.create("SpinAndPulse")
+    .on(0)
+    .rotate(spinner, 360.0, duration=2.4, wait=True)
+    .call(pulse_effect, pulse_pad)
+    .pack()
+)
+
+exo.CreateObj("text", (0, 9)).settings({"Text": "EXOSCRIPT LIVE", "FontSize": 3.0}).pack()
+lvl.export("custom_script.exolvl")`,
+    };
+
+    const PlaygroundManager = (() => {
+      let currentCode = PLAYGROUND_PRESETS.moving;
+      let levelState = null;
+      let rafId = null;
+      let isPaused = false;
+      let animStartTime = performance.now();
+      let cam = { x: 4, y: 0, zoom: 14 };
+      let isDragging = false;
+      let dragStart = { x: 0, y: 0, camX: 0, camY: 0 };
+
+      function parseTuple2(str, fallback = [0, 0]) {
+        if (!str) return fallback;
+        const m = str.match(/\(\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)\s*\)/);
+        if (!m) return fallback;
+        return [parseFloat(m[1]), parseFloat(m[2])];
+      }
+
+      function parseCode(code) {
+        const state = {
+          name: 'Untitled Level',
+          bg_type: 'Mountains',
+          customBg: '#0b101b',
+          laps: 1,
+          gravity: [0.0, -74.0],
+          exportFile: 'preview_level.exolvl',
+          obfuscate: false,
+          layers: [{ id: 1, name: 'Layer 1', parallax: [0, 0] }],
+          objects: [],
+          variables: [],
+          scripts: [],
+          animations: [],
+        };
+
+        const varToObj = {};
+        const varToBlock = {};
+        const funcToBlock = {};
+
+        // Parse exo.init(...)
+        const initMatch = code.match(/exo\.init\s*\(([\s\S]*?)\)\s*(?:\n|$)/);
+        if (initMatch) {
+          const body = initMatch[1];
+          const nameM = body.match(/^\s*["']([^"']+)["']/);
+          if (nameM) state.name = nameM[1];
+          const bgM = body.match(/bg_type\s*=\s*["']([^"']+)["']/);
+          if (bgM) state.bg_type = bgM[1];
+          const lapsM = body.match(/laps\s*=\s*(\d+)/);
+          if (lapsM) state.laps = parseInt(lapsM[1], 10);
+          const gravM = body.match(/gravity\s*=\s*(\([^)]+\))/);
+          if (gravM) state.gravity = parseTuple2(gravM[1], [0.0, -74.0]);
+          const cbgM = body.match(/["']CustomBackgroundColor["']\s*:\s*["']([^"']+)["']/);
+          if (cbgM) state.customBg = cbgM[1];
+        }
+
+        // Parse exo.CreateLayer(...)
+        const layerRegex = /(?:([a-zA-Z_]\w*)\s*=\s*)?exo\.CreateLayer\s*\(\s*["']([^"']+)["']([^)]*)\)/g;
+        let lm;
+        while ((lm = layerRegex.exec(code)) !== null) {
+          const pM = lm[3].match(/parallax\s*=\s*(\([^)]+\))/);
+          state.layers.push({
+            id: state.layers.length + 1,
+            name: lm[2],
+            parallax: pM ? parseTuple2(pM[1], [0, 0]) : [0, 0],
+          });
+        }
+
+        // Parse exo.CreateObj(...) chains
+        const objRegex = /(?:([a-zA-Z_]\w*)\s*=\s*)?exo\.CreateObj\s*\(\s*["']?([^"',)]+)["']?\s*,\s*(\([^)]+\))\s*\)([\s\S]*?)\.pack\s*\(\s*\)/g;
+        let om;
+        while ((om = objRegex.exec(code)) !== null) {
+          const varName = om[1] || null;
+          const type = om[2].toLowerCase();
+          const pos = parseTuple2(om[3], [0, 0]);
+          const chain = om[4] || '';
+
+          const obj = {
+            id: state.objects.length + 1,
+            varName,
+            type,
+            pos: [...pos],
+            basePos: [...pos],
+            box: type === 'terrain' ? [6, 2] : [1.6, 1.6],
+            scale: [1, 1],
+            baseScale: [1, 1],
+            rotation: 0,
+            baseRotation: 0,
+            color:
+              type === 'start'
+                ? '#22c55e'
+                : type === 'finish'
+                ? '#eab308'
+                : type === 'text'
+                ? '#f8fafc'
+                : '#475569',
+            text: '',
+            tag: '',
+          };
+
+          const boxM = chain.match(/["']Box["']\s*:\s*(\([^)]+\))/);
+          if (boxM) obj.box = parseTuple2(boxM[1], obj.box);
+
+          const rotM = chain.match(/["']Rotation["']\s*:\s*([+-]?\d+(?:\.\d+)?)/);
+          if (rotM) {
+            obj.rotation = parseFloat(rotM[1]);
+            obj.baseRotation = obj.rotation;
+          }
+
+          const scM = chain.match(/["']Scale["']\s*:\s*(\([^)]+\))/);
+          if (scM) {
+            obj.scale = parseTuple2(scM[1], [1, 1]);
+            obj.baseScale = [...obj.scale];
+          }
+
+          const colM = chain.match(/["']Color["']\s*:\s*["']([^"']+)["']/);
+          if (colM) obj.color = colM[1];
+
+          const txtM = chain.match(/["']Text["']\s*:\s*["']([^"']+)["']/);
+          if (txtM) obj.text = txtM[1];
+
+          const tagM = chain.match(/["']Tag["']\s*:\s*["']([^"']+)["']/);
+          if (tagM) obj.tag = tagM[1];
+
+          state.objects.push(obj);
+          if (varName) varToObj[varName] = obj;
+        }
+
+        // Parse exovar.* declarations
+        const varRegex = /([a-zA-Z_]\w*)\s*=\s*exovar\.(Int|Float|Bool|String|Color|Vector|Object|ObjectSet)\s*\(\s*["']([^"']+)["'](?:\s*,\s*([^)]+))?\)/g;
+        let vm;
+        while ((vm = varRegex.exec(code)) !== null) {
+          state.variables.push({
+            pyVar: vm[1],
+            type: vm[2],
+            name: vm[3],
+            initial: (vm[4] || '').trim(),
+          });
+        }
+
+        // Parse stored exoscript.block() variables
+        const blockRegex = /([a-zA-Z_]\w*)\s*=\s*\(?\s*exoscript\.block\s*\(\s*\)([\s\S]*?)(?:\n\s*\)|\n\s*\n)/g;
+        let bm;
+        while ((bm = blockRegex.exec(code)) !== null) {
+          varToBlock[bm[1]] = bm[2];
+        }
+
+        // Parse @exoscript.func definitions
+        const funcRegex = /@exoscript\.func[^\n]*\ndef\s+([a-zA-Z_]\w*)\s*\(\s*([a-zA-Z_]\w*)[^)]*\)\s*:[\s\S]*?return\s*\(?\s*exoscript\.block\s*\(\s*\)([\s\S]*?)(?:\n\s*\)|\n\s*\n)/g;
+        let fm;
+        while ((fm = funcRegex.exec(code)) !== null) {
+          funcToBlock[fm[1]] = { paramName: fm[2], body: fm[3] };
+        }
+
+        function extractActions(chainText, scriptName) {
+          const moveRe = /\.move\s*\(\s*([a-zA-Z_]\w*)\s*,\s*(\([^)]+\))([^)]*)\)/g;
+          let mm;
+          while ((mm = moveRe.exec(chainText)) !== null) {
+            const targetObj = varToObj[mm[1]];
+            const dest = parseTuple2(mm[2], [0, 0]);
+            const durM = mm[3].match(/duration\s*=\s*([+-]?\d+(?:\.\d+)?)/);
+            if (targetObj) {
+              state.animations.push({
+                kind: 'move',
+                scriptName,
+                target: targetObj,
+                to: dest,
+                duration: durM ? Math.max(0.2, parseFloat(durM[1])) : 1.0,
+              });
+            }
+          }
+
+          const rotRe = /\.rotate\s*\(\s*([a-zA-Z_]\w*)\s*,\s*([+-]?\d+(?:\.\d+)?)([^)]*)\)/g;
+          let rm;
+          while ((rm = rotRe.exec(chainText)) !== null) {
+            const targetObj = varToObj[rm[1]];
+            const angle = parseFloat(rm[2]);
+            const durM = rm[3].match(/duration\s*=\s*([+-]?\d+(?:\.\d+)?)/);
+            if (targetObj) {
+              state.animations.push({
+                kind: 'rotate',
+                scriptName,
+                target: targetObj,
+                to: angle,
+                duration: durM ? Math.max(0.2, parseFloat(durM[1])) : 1.5,
+              });
+            }
+          }
+
+          const scaleRe = /\.scale\s*\(\s*([a-zA-Z_]\w*)\s*,\s*(\([^)]+\))([^)]*)\)/g;
+          let sm;
+          while ((sm = scaleRe.exec(chainText)) !== null) {
+            const targetObj = varToObj[sm[1]];
+            const toScale = parseTuple2(sm[2], [1, 1]);
+            const durM = sm[3].match(/duration\s*=\s*([+-]?\d+(?:\.\d+)?)/);
+            if (targetObj) {
+              state.animations.push({
+                kind: 'scale',
+                scriptName,
+                target: targetObj,
+                to: toScale,
+                duration: durM ? Math.max(0.2, parseFloat(durM[1])) : 1.0,
+              });
+            }
+          }
+        }
+
+        // Parse exoscript.create(...) scripts (chained or stored in Python variables)
+        const scriptRegex = /(?:([a-zA-Z_]\w*)\s*=\s*)?\(?\s*exoscript\.create\s*\(\s*["']([^"']+)["']\s*\)([\s\S]*?)\.pack\s*\(\s*\)/g;
+        let stm;
+        while ((stm = scriptRegex.exec(code)) !== null) {
+          const pyVar = stm[1] || null;
+          const sName = stm[2];
+          let body = stm[3] || '';
+
+          // Expand .repeat(N, stored_block_var)
+          const repVarRe = /\.repeat\s*\(\s*\d+\s*,\s*([a-zA-Z_]\w*)\s*\)/g;
+          let rvm;
+          while ((rvm = repVarRe.exec(body)) !== null) {
+            if (varToBlock[rvm[1]]) {
+              body += '\n' + varToBlock[rvm[1]];
+            }
+          }
+
+          // Expand .call(func_name, target_obj_var)
+          const callRe = /\.call\s*\(\s*([a-zA-Z_]\w*)\s*,\s*([a-zA-Z_]\w*)/g;
+          let cm;
+          while ((cm = callRe.exec(body)) !== null) {
+            const fnInfo = funcToBlock[cm[1]];
+            if (fnInfo) {
+              const replaced = fnInfo.body.replace(new RegExp('\\b' + fnInfo.paramName + '\\b', 'g'), cm[2]);
+              body += '\n' + replaced;
+            }
+          }
+
+          state.scripts.push({ name: sName, pyVar });
+          extractActions(body, sName);
+        }
+
+        // Parse lvl.export(...)
+        const expM = code.match(/\.export\s*\(\s*["']([^"']+)["']([^)]*)\)/);
+        if (expM) {
+          state.exportFile = expM[1];
+          if (/obfuscate\s*=\s*True/.test(expM[2])) state.obfuscate = true;
+        }
+
+        return state;
+      }
+
+      function autoFitCamera() {
+        if (!levelState || levelState.objects.length === 0) {
+          cam = { x: 0, y: 0, zoom: 14 };
+          return;
+        }
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+
+        levelState.objects.forEach((o) => {
+          const hw = (o.box[0] * o.baseScale[0]) / 2;
+          const hh = (o.box[1] * o.baseScale[1]) / 2;
+          minX = Math.min(minX, o.basePos[0] - hw);
+          maxX = Math.max(maxX, o.basePos[0] + hw);
+          minY = Math.min(minY, o.basePos[1] - hh);
+          maxY = Math.max(maxY, o.basePos[1] + hh);
+        });
+
+        cam.x = (minX + maxX) / 2;
+        cam.y = (minY + maxY) / 2;
+
+        const canvas = document.getElementById('playground-canvas');
+        if (canvas && canvas.clientWidth && canvas.clientHeight) {
+          const spanX = Math.max(16, maxX - minX + 12);
+          const spanY = Math.max(10, maxY - minY + 10);
+          cam.zoom = Math.max(6, Math.min(36, Math.min(canvas.clientWidth / spanX, canvas.clientHeight / spanY)));
+        }
+      }
+
+      function renderFrame(now) {
+        const canvas = document.getElementById('playground-canvas');
+        if (!canvas || !levelState) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          if (canvas.width !== Math.floor(rect.width * dpr) || canvas.height !== Math.floor(rect.height * dpr)) {
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
+          }
+        }
+
+        const ctx = canvas.getContext('2d');
+        ctx.save();
+        ctx.scale(dpr, dpr);
+
+        const w = rect.width || 600;
+        const h = rect.height || 340;
+
+        const themeBg = {
+          Mountains: '#0f172a',
+          Halloween: '#181024',
+          Christmas: '#0c1d2c',
+          Custom: levelState.customBg || '#090d16',
+        };
+        ctx.fillStyle = themeBg[levelState.bg_type] || '#0f172a';
+        ctx.fillRect(0, 0, w, h);
+
+        // Reset transforms before applying active Exoscript animations
+        levelState.objects.forEach((o) => {
+          o.pos = [...o.basePos];
+          o.rotation = o.baseRotation;
+          o.scale = [...o.baseScale];
+        });
+
+        const elapsed = isPaused ? 0 : (now - animStartTime) / 1000;
+        levelState.animations.forEach((anim) => {
+          const cycle = anim.duration * 2;
+          const phase = (elapsed % cycle) / anim.duration;
+          const t = phase <= 1 ? phase : 2 - phase;
+          const ease = t * t * (3 - 2 * t);
+
+          if (anim.kind === 'move') {
+            anim.target.pos[0] = anim.target.basePos[0] + (anim.to[0] - anim.target.basePos[0]) * ease;
+            anim.target.pos[1] = anim.target.basePos[1] + (anim.to[1] - anim.target.basePos[1]) * ease;
+          } else if (anim.kind === 'rotate') {
+            anim.target.rotation = anim.target.baseRotation + anim.to * ((elapsed / anim.duration) % 1);
+          } else if (anim.kind === 'scale') {
+            anim.target.scale[0] = anim.target.baseScale[0] + (anim.to[0] - anim.target.baseScale[0]) * ease;
+            anim.target.scale[1] = anim.target.baseScale[1] + (anim.to[1] - anim.target.baseScale[1]) * ease;
+          }
+        });
+
+        const toScreenX = (wx) => w / 2 + (wx - cam.x) * cam.zoom;
+        const toScreenY = (wy) => h / 2 - (wy - cam.y) * cam.zoom;
+
+        // Coordinate grid
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
+        ctx.lineWidth = 1;
+        const step = 5;
+        const leftWorld = cam.x - w / (2 * cam.zoom);
+        const rightWorld = cam.x + w / (2 * cam.zoom);
+        const bottomWorld = cam.y - h / (2 * cam.zoom);
+        const topWorld = cam.y + h / (2 * cam.zoom);
+
+        for (let gx = Math.floor(leftWorld / step) * step; gx <= rightWorld; gx += step) {
+          const sx = toScreenX(gx);
+          ctx.beginPath();
+          ctx.moveTo(sx, 0);
+          ctx.lineTo(sx, h);
+          ctx.stroke();
+        }
+        for (let gy = Math.floor(bottomWorld / step) * step; gy <= topWorld; gy += step) {
+          const sy = toScreenY(gy);
+          ctx.beginPath();
+          ctx.moveTo(0, sy);
+          ctx.lineTo(w, sy);
+          ctx.stroke();
+        }
+
+        // Origin axes
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+        ctx.beginPath();
+        ctx.moveTo(toScreenX(0), 0);
+        ctx.lineTo(toScreenX(0), h);
+        ctx.moveTo(0, toScreenY(0));
+        ctx.lineTo(w, toScreenY(0));
+        ctx.stroke();
+
+        // Render level objects
+        levelState.objects.forEach((o) => {
+          const sx = toScreenX(o.pos[0]);
+          const sy = toScreenY(o.pos[1]);
+          const pw = o.box[0] * o.scale[0] * cam.zoom;
+          const ph = o.box[1] * o.scale[1] * cam.zoom;
+
+          ctx.save();
+          ctx.translate(sx, sy);
+          ctx.rotate((-o.rotation * Math.PI) / 180);
+
+          if (o.type === 'text') {
+            ctx.fillStyle = o.color || '#f8fafc';
+            ctx.font = `600 ${Math.max(11, Math.round(cam.zoom * 0.9))}px Inter, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(o.text || 'Text', 0, 0);
+          } else if (o.type === 'start' || o.type === 'finish') {
+            ctx.fillStyle = o.type === 'start' ? 'rgba(34, 197, 94, 0.22)' : 'rgba(234, 179, 8, 0.22)';
+            ctx.strokeStyle = o.type === 'start' ? '#22c55e' : '#eab308';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(-pw / 2, -ph / 2, pw, ph, 6);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = o.type === 'start' ? '#86efac' : '#fde047';
+            ctx.font = '700 10px JetBrains Mono, monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(o.type.toUpperCase(), 0, 0);
+          } else {
+            ctx.fillStyle = o.color || '#475569';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.roundRect(-pw / 2, -ph / 2, pw, ph, 4);
+            ctx.fill();
+            ctx.stroke();
+          }
+
+          ctx.restore();
+        });
+
+        // HUD Overlay
+        ctx.fillStyle = 'rgba(9, 9, 11, 0.68)';
+        ctx.beginPath();
+        ctx.roundRect(12, 12, 238, 44, 8);
+        ctx.fill();
+
+        ctx.fillStyle = '#f4f4f5';
+        ctx.font = '600 12px Inter, sans-serif';
+        ctx.fillText(levelState.name, 22, 30);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '11px JetBrains Mono, monospace';
+        ctx.fillText(`${levelState.bg_type} • g=(${levelState.gravity[0]}, ${levelState.gravity[1]})`, 22, 46);
+
+        ctx.restore();
+        rafId = requestAnimationFrame(renderFrame);
+      }
+
+      function updateInspector() {
+        if (!levelState) return;
+        const summaryEl = document.getElementById('pg-inspector-summary');
+        const jsonEl = document.getElementById('pg-inspector-json');
+        if (!summaryEl || !jsonEl) return;
+
+        const stats = [
+          { label: 'Objects', val: levelState.objects.length },
+          { label: 'Exoscripts', val: levelState.scripts.length },
+          { label: 'Variables', val: levelState.variables.length },
+          { label: 'Theme', val: levelState.bg_type },
+        ];
+
+        summaryEl.innerHTML = stats
+          .map(
+            (s) => `
+            <div class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/70 p-3">
+              <div class="text-[11px] text-zinc-500 dark:text-zinc-400">${s.label}</div>
+              <div class="mt-0.5 font-mono text-base font-semibold text-zinc-900 dark:text-white">${escapeHtml(String(s.val))}</div>
+            </div>
+          `
+          )
+          .join('');
+
+        const manifest = {
+          level_name: levelState.name,
+          bg_type: levelState.bg_type,
+          laps: levelState.laps,
+          gravity: levelState.gravity,
+          export_target: levelState.exportFile,
+          obfuscated: levelState.obfuscate,
+          layers: levelState.layers,
+          objects: levelState.objects.map((o) => ({
+            id: o.id,
+            type: o.type,
+            pos: o.basePos,
+            box: o.box,
+            rotation: o.baseRotation,
+            tag: o.tag || undefined,
+            text: o.text || undefined,
+          })),
+          exoscripts: levelState.scripts,
+          exovar_variables: levelState.variables,
+        };
+        jsonEl.textContent = JSON.stringify(manifest, null, 2);
+      }
+
+      function run() {
+        const editor = document.getElementById('playground-editor');
+        const statusText = document.getElementById('pg-status-text');
+        const animBadge = document.getElementById('pg-anim-badge');
+        if (!editor) return;
+
+        currentCode = editor.value;
+        levelState = parseCode(currentCode);
+        animStartTime = performance.now();
+        autoFitCamera();
+        updateInspector();
+
+        if (statusText) {
+          statusText.textContent = `Built "${levelState.name}" — ${levelState.objects.length} objects, ${levelState.scripts.length} Exoscripts, ${levelState.variables.length} variables.`;
+        }
+        if (animBadge) {
+          animBadge.classList.toggle('hidden', levelState.animations.length === 0);
+        }
+      }
+
+      function downloadFile(filename, data, mime = 'application/octet-stream') {
+        const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      // Build a real NYA^ v18 binary .exolvl file (gzip-compressed via CompressionStream if supported)
+      async function buildBinaryExolvl(state) {
+        const chunks = [];
+        const pushBytes = (arr) => chunks.push(new Uint8Array(arr));
+        const pushI32 = (v) => {
+          const b = new ArrayBuffer(4);
+          new DataView(b).setInt32(0, v | 0, true);
+          chunks.push(new Uint8Array(b));
+        };
+        const pushI64 = (v) => {
+          const b = new ArrayBuffer(8);
+          new DataView(b).setBigInt64(0, BigInt(Math.round(v)), true);
+          chunks.push(new Uint8Array(b));
+        };
+        const pushF32 = (v) => {
+          const b = new ArrayBuffer(4);
+          new DataView(b).setFloat32(0, Number(v), true);
+          chunks.push(new Uint8Array(b));
+        };
+        const pushBool = (v) => pushBytes([v ? 1 : 0]);
+        const pushVec2 = (xy) => {
+          pushF32(xy[0]);
+          pushF32(xy[1]);
+        };
+        const pushVarint = (val) => {
+          let v = val >>> 0;
+          while (v >= 0x80) {
+            pushBytes([(v & 0x7f) | 0x80]);
+            v >>>= 7;
+          }
+          pushBytes([v]);
+        };
+        const pushStr = (s) => {
+          const enc = new TextEncoder().encode(String(s));
+          pushVarint(enc.length);
+          chunks.push(enc);
+        };
+        const hexToRgba = (hex) => {
+          const clean = String(hex || '#475569').replace('#', '');
+          const num = parseInt(clean.padEnd(6, '0').slice(0, 6), 16) || 0x475569;
+          return [((num >> 16) & 255) / 255, ((num >> 8) & 255) / 255, (num & 255) / 255, 1.0];
+        };
+        const pushColor = (hex) => {
+          const rgba = hexToRgba(hex);
+          rgba.forEach(pushF32);
+        };
+
+        const levelUuid = crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-4000-8000-000000000001';
+        const tileMap = { terrain: 1, start: 2, finish: 3, text: 4 };
+        const themeMap = {
+          Mountains: 'Mountains',
+          Halloween: 'Halloween',
+          Christmas: 'Christmas',
+          Custom: 'Custom',
+        };
+
+        // Header: NYA^ + version 18
+        pushBytes([0x4e, 0x59, 0x41, 0x5e]);
+        pushI32(18);
+        pushStr(levelUuid);
+        pushI32(1);
+        pushStr(state.name);
+        pushStr('');
+        pushI64(0);
+        pushI64(0);
+        pushI64(0);
+        pushI32(0);
+        pushI64(0);
+        pushI64(0);
+        pushI32(state.laps);
+        pushBool(false);
+        pushBool(true);
+        pushStr(levelUuid);
+        pushI32(1);
+        pushBool(true);
+        for (let i = 0; i < 6; i++) pushI32(0);
+
+        // Objects
+        pushI32(state.objects.length);
+        state.objects.forEach((o) => {
+          pushI32(o.id);
+          pushI32(tileMap[o.type] || 1);
+          pushI32(0);
+          pushI32(0);
+          pushVec2(o.basePos);
+          pushVec2(o.baseScale);
+          pushF32(o.baseRotation);
+          pushStr(o.tag || '');
+
+          const props = [];
+          if (o.type === 'terrain') {
+            props.push({ id: 1, kind: 'tcorners', box: o.box });
+          }
+          if (o.type === 'text' && o.text) {
+            props.push({ id: 2, kind: 'str', val: o.text });
+          }
+          pushI32(props.length);
+          props.forEach((p) => {
+            pushI32(p.id);
+            if (p.kind === 'tcorners') {
+              const hw = p.box[0] / 2;
+              const hh = p.box[1] / 2;
+              pushI32(1);
+              pushI32(4);
+              pushVec2([-hw, -hh]);
+              pushVec2([hw, -hh]);
+              pushVec2([hw, hh]);
+              pushVec2([-hw, hh]);
+            } else if (p.kind === 'str') {
+              pushStr(p.val);
+            }
+          });
+
+          pushI32(1);
+          pushI32(0);
+          pushI32(0);
+        });
+
+        // Layers
+        pushI32(state.layers.length);
+        state.layers.forEach((l, idx) => {
+          pushI32(l.id || idx + 1);
+          pushStr(l.name);
+          pushBool(false);
+          pushBool(false);
+          pushBool(false);
+          pushI32(0);
+          pushVec2(l.parallax || [0, 0]);
+          pushBool(false);
+          if (idx === 0) {
+            pushI32(state.objects.length);
+            state.objects.forEach((o) => pushI32(o.id));
+          } else {
+            pushI32(0);
+          }
+        });
+
+        for (let i = 0; i < 4; i++) pushI32(0);
+        pushI64(0);
+        pushI32(0);
+        pushI64(0);
+        pushI64(0);
+        pushI32(state.laps);
+        pushBool(false);
+        pushI32(0);
+        pushI32(0); // nova_scripts count
+        pushI32(0); // global_variables count
+        pushStr(themeMap[state.bg_type] || 'Mountains');
+        pushColor(state.customBg);
+        pushBytes([0, 0, 0, 0]);
+        pushI32(0);
+        pushVec2([0, 0]);
+        pushVec2([0, 0]);
+        pushColor('#000000');
+        pushColor('#000000');
+        pushI32(0);
+        pushColor('#000000');
+        pushF32(0);
+        pushF32(0);
+        pushBool(false);
+        pushBool(false);
+        pushF32(0);
+        pushBool(true);
+        pushI32(0);
+        pushBool(true);
+        pushBool(false);
+        pushBool(false);
+        pushBool(false);
+        pushVec2(state.gravity);
+        pushI32(0);
+
+        // Exopy footer
+        const wm = new TextEncoder().encode('made with exopy');
+        const body = new Uint8Array(6 + wm.length);
+        body.set([0x45, 0x58, 0x50, 0x59, 0x01, wm.length], 0);
+        body.set(wm, 6);
+        pushBytes(body);
+        const lenBuf = new ArrayBuffer(2);
+        new DataView(lenBuf).setUint16(0, body.length, true);
+        pushBytes(new Uint8Array(lenBuf));
+        pushBytes([0x59, 0x50, 0x58, 0x45]);
+
+        const rawBlob = new Blob(chunks);
+        if (typeof CompressionStream !== 'undefined') {
+          const cs = new CompressionStream('gzip');
+          const compressedStream = rawBlob.stream().pipeThrough(cs);
+          return await new Response(compressedStream).blob();
+        }
+        return rawBlob;
+      }
+
+      function mount() {
+        const editor = document.getElementById('playground-editor');
+        const canvas = document.getElementById('playground-canvas');
+        if (!editor || !canvas) return;
+
+        editor.value = currentCode;
+        run();
+
+        // Preset buttons
+        document.querySelectorAll('[data-preset]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const key = btn.getAttribute('data-preset');
+            if (PLAYGROUND_PRESETS[key]) {
+              currentCode = PLAYGROUND_PRESETS[key];
+              editor.value = currentCode;
+              run();
+            }
+          });
+        });
+
+        // Run button
+        const runBtn = document.getElementById('pg-run-btn');
+        if (runBtn) runBtn.addEventListener('click', run);
+
+        // Copy code button
+        const copyBtn = document.getElementById('pg-copy-btn');
+        if (copyBtn) {
+          copyBtn.addEventListener('click', () => {
+            copyTextWithFeedback(editor.value, copyBtn);
+          });
+        }
+
+        // View switches
+        const tabCanvas = document.getElementById('pg-tab-canvas');
+        const tabInspector = document.getElementById('pg-tab-inspector');
+        const viewCanvas = document.getElementById('pg-view-canvas');
+        const viewInspector = document.getElementById('pg-view-inspector');
+
+        if (tabCanvas && tabInspector) {
+          tabCanvas.addEventListener('click', () => {
+            viewCanvas.classList.remove('hidden');
+            viewInspector.classList.add('hidden');
+            tabCanvas.className = 'rounded-lg bg-sky-500/15 border border-sky-500/40 px-3 py-1 text-xs font-medium text-sky-600 dark:text-sky-400 transition-colors';
+            tabInspector.className = 'rounded-lg border border-transparent px-3 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800 transition-colors';
+          });
+          tabInspector.addEventListener('click', () => {
+            viewCanvas.classList.add('hidden');
+            viewInspector.classList.remove('hidden');
+            tabInspector.className = 'rounded-lg bg-sky-500/15 border border-sky-500/40 px-3 py-1 text-xs font-medium text-sky-600 dark:text-sky-400 transition-colors';
+            tabCanvas.className = 'rounded-lg border border-transparent px-3 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800 transition-colors';
+          });
+        }
+
+        // Play / Pause & Reset Camera
+        const playToggle = document.getElementById('pg-play-toggle');
+        if (playToggle) {
+          playToggle.addEventListener('click', () => {
+            isPaused = !isPaused;
+            playToggle.textContent = isPaused ? 'Resume Anim' : 'Pause Anim';
+          });
+        }
+
+        const resetCamBtn = document.getElementById('pg-reset-cam');
+        if (resetCamBtn) resetCamBtn.addEventListener('click', autoFitCamera);
+
+        // Export .py & .exolvl
+        const exportPyBtn = document.getElementById('pg-export-py');
+        if (exportPyBtn) {
+          exportPyBtn.addEventListener('click', () => {
+            downloadFile('my_exoscript_level.py', editor.value, 'text/x-python');
+          });
+        }
+
+        const exportExolvlBtn = document.getElementById('pg-export-exolvl');
+        if (exportExolvlBtn) {
+          exportExolvlBtn.addEventListener('click', async () => {
+            run();
+            const blob = await buildBinaryExolvl(levelState);
+            downloadFile(levelState.exportFile || 'preview_level.exolvl', blob);
+          });
+        }
+
+        // Canvas Mouse & Touch Pan/Zoom
+        canvas.addEventListener('mousedown', (e) => {
+          isDragging = true;
+          dragStart = { x: e.clientX, y: e.clientY, camX: cam.x, camY: cam.y };
+        });
+
+        window.addEventListener('mousemove', (e) => {
+          if (!isDragging) return;
+          cam.x = dragStart.camX - (e.clientX - dragStart.x) / cam.zoom;
+          cam.y = dragStart.camY + (e.clientY - dragStart.y) / cam.zoom;
+        });
+
+        window.addEventListener('mouseup', () => {
+          isDragging = false;
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+          if (e.touches.length === 1) {
+            isDragging = true;
+            dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, camX: cam.x, camY: cam.y };
+          }
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', (e) => {
+          if (!isDragging || e.touches.length !== 1) return;
+          cam.x = dragStart.camX - (e.touches[0].clientX - dragStart.x) / cam.zoom;
+          cam.y = dragStart.camY + (e.touches[0].clientY - dragStart.y) / cam.zoom;
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', () => {
+          isDragging = false;
+        });
+
+        canvas.addEventListener(
+          'wheel',
+          (e) => {
+            e.preventDefault();
+            const factor = e.deltaY < 0 ? 1.12 : 0.89;
+            cam.zoom = Math.max(4, Math.min(60, cam.zoom * factor));
+          },
+          { passive: false }
+        );
+
+        unmount();
+        rafId = requestAnimationFrame(renderFrame);
+      }
+
+      function unmount() {
+        if (rafId) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+      }
+
+      return { mount, unmount };
+    })();
+
+    // ============================================================================
+    // 5. Main App Controller: Routing, Search, Clipboard, Theme & Mobile Menu
+    // ============================================================================
+    let currentPageId = 'quickstart';
+
+    function copyToClipboard(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    function copyTextWithFeedback(text, btn) {
+      copyToClipboard(text);
+      const label = btn.querySelector('.copy-label');
+      if (label) {
+        const orig = label.textContent;
+        label.textContent = 'Copied!';
+        btn.classList.add('border-emerald-500/50', 'text-emerald-600', 'dark:text-emerald-400');
+        setTimeout(() => {
+          label.textContent = orig;
+          btn.classList.remove('border-emerald-500/50', 'text-emerald-600', 'dark:text-emerald-400');
+        }, 1500);
+      }
+    }
+
+    function renderSidebar() {
+      const nav = document.getElementById('sidebar-nav');
+      if (!nav) return;
+
+      const groups = {};
+      DOC_PAGES.forEach((p) => {
+        if (!groups[p.group]) groups[p.group] = [];
+        groups[p.group].push(p);
+      });
+
+      nav.innerHTML = Object.entries(groups)
+        .map(([groupName, items]) => {
+          const links = items
+            .map((p) => {
+              const isActive = p.id === currentPageId;
+              const cls = isActive
+                ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 font-medium border-sky-500/30'
+                : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-zinc-100 border-transparent';
+              return `
+                <li>
+                  <button
+                    type="button"
+                    data-nav="${p.id}"
+                    class="w-full text-left rounded-lg border px-3 py-2 text-sm transition-colors ${cls}"
+                  >
+                    ${escapeHtml(p.title)}
+                  </button>
+                </li>
+              `;
+            })
+            .join('');
+
+          return `
+            <div>
+              <div class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                ${escapeHtml(groupName)}
+              </div>
+              <ul class="space-y-1">${links}</ul>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function renderPageNav() {
+      const pageNav = document.getElementById('page-nav');
+      if (!pageNav) return;
+
+      const idx = DOC_PAGES.findIndex((p) => p.id === currentPageId);
+      const prev = idx > 0 ? DOC_PAGES[idx - 1] : null;
+      const next = idx < DOC_PAGES.length - 1 ? DOC_PAGES[idx + 1] : null;
+
+      const prevHtml = prev
+        ? `
+          <button
+            type="button"
+            data-nav="${prev.id}"
+            class="group flex flex-col items-start rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 text-left hover:border-sky-500/50 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-all"
+          >
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mb-1">&larr; Previous</span>
+            <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">${escapeHtml(prev.title)}</span>
+          </button>
+        `
+        : '<div></div>';
+
+      const nextHtml = next
+        ? `
+          <button
+            type="button"
+            data-nav="${next.id}"
+            class="group flex flex-col items-end rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 text-right hover:border-sky-500/50 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-all"
+          >
+            <span class="text-xs text-zinc-500 dark:text-zinc-400 mb-1">Next &rarr;</span>
+            <span class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">${escapeHtml(next.title)}</span>
+          </button>
+        `
+        : '<div></div>';
+
+      pageNav.innerHTML = prevHtml + nextHtml;
+    }
+
+    function closeSidebar() {
+      const sidebarEl = document.getElementById('sidebar');
+      const backdropEl = document.getElementById('sidebar-backdrop');
+      if (sidebarEl) sidebarEl.classList.add('-translate-x-full');
+      if (backdropEl) backdropEl.classList.add('hidden');
+    }
+
+    function openSidebar() {
+      const sidebarEl = document.getElementById('sidebar');
+      const backdropEl = document.getElementById('sidebar-backdrop');
+      if (sidebarEl) sidebarEl.classList.remove('-translate-x-full');
+      if (backdropEl) backdropEl.classList.remove('hidden');
+    }
+
+    function navigateTo(pageId) {
+      const page = DOC_PAGES.find((p) => p.id === pageId) || DOC_PAGES[0];
+      currentPageId = page.id;
+
+      try {
+        history.replaceState(null, '', '#' + page.id);
+      } catch (e) {}
+
+      const contentEl = document.getElementById('doc-content');
+      if (contentEl) {
+        contentEl.innerHTML = page.render();
+      }
+
+      renderSidebar();
+      renderPageNav();
+      closeSidebar();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      if (page.id === 'playground') {
+        PlaygroundManager.mount();
+      } else {
+        PlaygroundManager.unmount();
+      }
+    }
+
+    function syncThemeIcons() {
+      const isDark = document.documentElement.classList.contains('dark');
+      const iconSun = document.getElementById('icon-sun');
+      const iconMoon = document.getElementById('icon-moon');
+      if (iconSun) iconSun.classList.toggle('hidden', !isDark);
+      if (iconMoon) iconMoon.classList.toggle('hidden', isDark);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      syncThemeIcons();
+
+      // Delegated click handler for navigation, copy buttons, and action tabs
+      document.addEventListener('click', (e) => {
+        const navBtn = e.target.closest('[data-nav]');
+        if (navBtn) {
+          const targetPage = navBtn.getAttribute('data-nav');
+          const searchInput = document.getElementById('doc-search');
+          const searchResults = document.getElementById('search-results');
+          const clearBtn = document.getElementById('clear-search-btn');
+          if (searchInput && searchResults && clearBtn) {
+            searchInput.value = '';
+            searchResults.classList.add('hidden');
+            clearBtn.classList.add('hidden');
+          }
+          navigateTo(targetPage);
+          return;
+        }
+
+        const copyIdBtn = e.target.closest('[data-copy-id]');
+        if (copyIdBtn) {
+          const code = CODE_SNIPPETS[copyIdBtn.getAttribute('data-copy-id')];
+          if (code) copyTextWithFeedback(code, copyIdBtn);
+          return;
+        }
+
+        const copyTextBtn = e.target.closest('[data-copy-text]');
+        if (copyTextBtn) {
+          const text = copyTextBtn.getAttribute('data-copy-text');
+          if (text) copyTextWithFeedback(text, copyTextBtn);
+          return;
+        }
+
+        const tabBtn = e.target.closest('[data-action-tab]');
+        if (tabBtn) {
+          activeActionTab = tabBtn.getAttribute('data-action-tab');
+          const container = document.getElementById('action-tabs-container');
+          if (container) container.innerHTML = renderActionTabsHtml();
+        }
+      });
+
+      // Mobile drawer buttons
+      const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+      const closeSidebarBtn = document.getElementById('close-sidebar-btn');
+      const backdropEl = document.getElementById('sidebar-backdrop');
+      if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', openSidebar);
+      if (closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
+      if (backdropEl) backdropEl.addEventListener('click', closeSidebar);
+
+      // Theme toggle
+      const themeToggleBtn = document.getElementById('theme-toggle');
+      if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+          document.documentElement.classList.toggle('dark');
+          syncThemeIcons();
+        });
+      }
+
+      // Live search input
+      const searchInput = document.getElementById('doc-search');
+      const searchResultsEl = document.getElementById('search-results');
+      const clearSearchBtn = document.getElementById('clear-search-btn');
+
+      if (searchInput && searchResultsEl && clearSearchBtn) {
+        searchInput.addEventListener('input', () => {
+          const q = searchInput.value.trim().toLowerCase();
+          if (!q) {
+            searchResultsEl.classList.add('hidden');
+            clearSearchBtn.classList.add('hidden');
+            return;
+          }
+
+          clearSearchBtn.classList.remove('hidden');
+          const matches = DOC_PAGES.filter((p) => {
+            const hay = `${p.title} ${p.description} ${p.group} ${p.keywords.join(' ')}`.toLowerCase();
+            return hay.includes(q);
+          });
+
+          if (matches.length === 0) {
+            searchResultsEl.innerHTML = `
+              <div class="p-3 text-xs text-zinc-500 dark:text-zinc-400 text-center">
+                No matching docs found for "${escapeHtml(q)}"
+              </div>
+            `;
+          } else {
+            searchResultsEl.innerHTML = matches
+              .map((p) => {
+                const matchedKw = p.keywords.find((k) => k.toLowerCase().includes(q));
+                const badge = matchedKw
+                  ? `<span class="mt-1 inline-block rounded bg-sky-500/10 px-1.5 py-0.5 font-mono text-[10px] text-sky-600 dark:text-sky-400">${escapeHtml(matchedKw)}</span>`
+                  : '';
+                return `
+                  <button
+                    type="button"
+                    data-nav="${p.id}"
+                    class="w-full text-left p-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/70 transition-colors"
+                  >
+                    <div class="text-xs font-semibold text-zinc-900 dark:text-zinc-100">${escapeHtml(p.title)}</div>
+                    <div class="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-1 mt-0.5">${escapeHtml(p.description)}</div>
+                    ${badge}
+                  </button>
+                `;
+              })
+              .join('');
+          }
+
+          searchResultsEl.classList.remove('hidden');
+        });
+
+        clearSearchBtn.addEventListener('click', () => {
+          searchInput.value = '';
+          searchResultsEl.classList.add('hidden');
+          clearSearchBtn.classList.add('hidden');
+          searchInput.focus();
+        });
+      }
+
+      // Initial route
+      const initialHash = window.location.hash.replace('#', '');
+      const initialPage = DOC_PAGES.some((p) => p.id === initialHash) ? initialHash : 'quickstart';
+      navigateTo(initialPage);
+    });
+  </script>
 </body>
 </html>
